@@ -220,8 +220,16 @@ def get_heatmap_data(page_url):
         # URL decode the page_url parameter
         decoded_page_url = unquote(page_url)
         
+        # Fix Flask path parameter issue with double slashes in URLs
+        # Flask's <path:> parameter consumes one slash from https://
+        if decoded_page_url.startswith('https:/') and not decoded_page_url.startswith('https://'):
+            decoded_page_url = 'https://' + decoded_page_url[7:]
+        elif decoded_page_url.startswith('http:/') and not decoded_page_url.startswith('http://'):
+            decoded_page_url = 'http://' + decoded_page_url[6:]
+        
         logger.info(f"Heatmap request - original: {page_url}")
         logger.info(f"Heatmap request - decoded: {decoded_page_url}")
+        logger.info(f"Heatmap request - corrected: {decoded_page_url}")
         
         # Validate page URL
         validated_page_url = QueryValidator.validate_page_url_param(decoded_page_url)
