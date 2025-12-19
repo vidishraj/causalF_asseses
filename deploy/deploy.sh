@@ -86,8 +86,8 @@ echo "🐍 Setting up Python environment..."
 cd $BACKEND_DIR
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-pip install gunicorn
+pip3.11 install -r requirements.txt
+pip3.11 install gunicorn
 
 # Configure firewall for RHEL-based systems
 if [ "$PKG_MANAGER" != "apt" ] && command -v firewall-cmd &> /dev/null; then
