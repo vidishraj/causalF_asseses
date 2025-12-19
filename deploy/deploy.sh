@@ -47,10 +47,29 @@ echo "📦 Installing required packages..."
 if [ "$PKG_MANAGER" = "apt" ]; then
     apt install -y nginx mongodb python3 python3-pip nodejs npm git certbot python3-certbot-nginx
 else
-    $PKG_MANAGER install -y nginx mongodb-server python3 python3-pip nodejs npm git certbot python3-certbot-nginx
+    # Check what's already installed and skip conflicts
+    echo "📦 Checking for already installed packages..."
     
-    # Install MongoDB from official repository if not available
-    if ! command -v mongod &> /dev/null; then
+    # Install packages one by one, skipping if they cause conflicts
+    for pkg in nginx python3 python3-pip nodejs npm git; do
+        if ! rpm -q $pkg >/dev/null 2>&1; then
+            echo "Installing $pkg..."
+            $PKG_MANAGER install -y $pkg || echo "Skipped $pkg due to conflicts"
+        else
+            echo "$pkg already installed"
+        fi
+    done
+    
+    # Try to install certbot
+    if ! command -v certbot >/dev/null 2>&1; then
+        echo "Installing certbot..."
+        $PKG_MANAGER install -y certbot python3-certbot-nginx || echo "Certbot installation skipped - SSL setup will be manual"
+    else
+        echo "certbot already installed"
+    fi
+    
+    # Install MongoDB if not already installed
+    if ! command -v mongod >/dev/null 2>&1; then
         echo "📦 Installing MongoDB from official repository..."
         cat > /etc/yum.repos.d/mongodb-org-6.0.repo << 'EOF'
 [mongodb-org-6.0]
@@ -60,7 +79,27 @@ gpgcheck=1
 enabled=1
 gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc
 EOF
-        $PKG_MANAGER install -y mongodb-org
+        
+        # Clean package cache and try installation
+        $PKG_MANAGER clean all
+        
+        # Try different installation methods
+        if ! $PKG_MANAGER install -y mongodb-org; then
+            echo "❌ Standard MongoDB installation failed. Trying conflict resolution..."
+            # Try with conflict resolution
+            if ! $PKG_MANAGER install -y --allowerasing mongodb-org; then
+                echo "❌ Still failed. Trying to remove MySQL conflicts..."
+                # Remove MySQL packages that might conflict
+                $PKG_MANAGER remove -y mysql-community-* || true
+                $PKG_MANAGER install -y mongodb-org || {
+                    echo "❌ MongoDB installation failed completely. You may need to install it manually."
+                    echo "Please run: sudo yum install -y mongodb-org"
+                    exit 1
+                }
+            fi
+        fi
+    else
+        echo "MongoDB already installed"
     fi
 fi
 
