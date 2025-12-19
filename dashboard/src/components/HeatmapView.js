@@ -18,7 +18,7 @@ function HeatmapView() {
     setUrlsLoading(true);
     try {
       const response = await axios.get(`${API_BASE}/sessions`);
-      const sessions = response.data;
+      const sessions = response.data.sessions;
       
       const urls = new Set();
       for (const session of sessions) {
