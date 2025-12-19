@@ -18,13 +18,51 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Update system packages
+# Detect package manager and update system
+echo "📦 Detecting package manager..."
+if command -v dnf &> /dev/null; then
+    PKG_MANAGER="dnf"
+elif command -v yum &> /dev/null; then
+    PKG_MANAGER="yum"
+elif command -v apt &> /dev/null; then
+    PKG_MANAGER="apt"
+else
+    echo "❌ No supported package manager found (dnf, yum, or apt)"
+    exit 1
+fi
+
+echo "📦 Using package manager: $PKG_MANAGER"
 echo "📦 Updating system packages..."
-apt update && apt upgrade -y
+
+if [ "$PKG_MANAGER" = "apt" ]; then
+    apt update && apt upgrade -y
+else
+    $PKG_MANAGER update -y
+    # Install EPEL repository for additional packages
+    $PKG_MANAGER install -y epel-release
+fi
 
 # Install required packages
 echo "📦 Installing required packages..."
-apt install -y nginx mongodb python3 python3-pip nodejs npm git certbot python3-certbot-nginx
+if [ "$PKG_MANAGER" = "apt" ]; then
+    apt install -y nginx mongodb python3 python3-pip nodejs npm git certbot python3-certbot-nginx
+else
+    $PKG_MANAGER install -y nginx mongodb-server python3 python3-pip nodejs npm git certbot python3-certbot-nginx
+    
+    # Install MongoDB from official repository if not available
+    if ! command -v mongod &> /dev/null; then
+        echo "📦 Installing MongoDB from official repository..."
+        cat > /etc/yum.repos.d/mongodb-org-6.0.repo << 'EOF'
+[mongodb-org-6.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/6.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc
+EOF
+        $PKG_MANAGER install -y mongodb-org
+    fi
+fi
 
 # Start and enable services
 echo "🔧 Starting services..."
@@ -52,9 +90,30 @@ source venv/bin/activate
 pip install -r requirements.txt
 pip install gunicorn
 
+# Configure firewall for RHEL-based systems
+if [ "$PKG_MANAGER" != "apt" ] && command -v firewall-cmd &> /dev/null; then
+    echo "🔥 Configuring firewall..."
+    firewall-cmd --permanent --add-service=http
+    firewall-cmd --permanent --add-service=https
+    firewall-cmd --reload
+fi
+
+# Set SELinux contexts (if SELinux is enabled)
+if [ "$PKG_MANAGER" != "apt" ] && command -v setenforce &> /dev/null && getenforce 2>/dev/null | grep -q "Enforcing"; then
+    echo "🔒 Configuring SELinux..."
+    setsebool -P httpd_can_network_connect 1
+    setsebool -P httpd_can_network_relay 1
+fi
+
 # Update file permissions
 echo "🔒 Setting file permissions..."
-chown -R www-data:www-data $APP_DIR
+if [ "$PKG_MANAGER" = "apt" ]; then
+    chown -R www-data:www-data $APP_DIR
+    USER_GROUP="www-data"
+else
+    chown -R nginx:nginx $APP_DIR
+    USER_GROUP="nginx"
+fi
 chmod +x $BACKEND_DIR/venv/bin/gunicorn
 
 # Create systemd service file
@@ -67,8 +126,8 @@ Requires=mongod.service
 
 [Service]
 Type=notify
-User=www-data
-Group=www-data
+User=$USER_GROUP
+Group=$USER_GROUP
 WorkingDirectory=$BACKEND_DIR
 Environment="PATH=$BACKEND_DIR/venv/bin"
 Environment="MONGO_URI=mongodb://localhost:27017/causalfunnel"
@@ -86,7 +145,15 @@ EOF
 
 # Create nginx configuration
 echo "🌐 Creating nginx configuration..."
-cat > /etc/nginx/sites-available/causalfunnel << EOF
+if [ "$PKG_MANAGER" = "apt" ]; then
+    NGINX_CONF_PATH="/etc/nginx/sites-available/causalfunnel"
+    NGINX_ENABLE_PATH="/etc/nginx/sites-enabled/"
+else
+    NGINX_CONF_PATH="/etc/nginx/conf.d/causalfunnel.conf"
+    NGINX_ENABLE_PATH=""
+fi
+
+cat > $NGINX_CONF_PATH << EOF
 server {
     listen 80;
     server_name $DOMAIN www.$DOMAIN;
@@ -173,9 +240,14 @@ server {
 EOF
 
 # Enable nginx site
-echo "✅ Enabling nginx site..."
-ln -sf /etc/nginx/sites-available/causalfunnel /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
+echo "✅ Configuring nginx..."
+if [ "$PKG_MANAGER" = "apt" ]; then
+    ln -sf /etc/nginx/sites-available/causalfunnel /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+else
+    # For RHEL-based systems, config is already in conf.d
+    rm -f /etc/nginx/conf.d/default.conf
+fi
 
 # Test nginx configuration
 echo "🧪 Testing nginx configuration..."
