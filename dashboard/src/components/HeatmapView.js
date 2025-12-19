@@ -146,14 +146,6 @@ function HeatmapView() {
           </div>
         )}
         
-        <input
-          type="text"
-          className="url-input"
-          placeholder="Or enter page URL manually (e.g., http://localhost:8080/index.html)"
-          value={pageUrl}
-          onChange={(e) => setPageUrl(e.target.value)}
-        />
-        
         <button 
           className="btn" 
           onClick={fetchHeatmapData}
