@@ -95,31 +95,6 @@ causalFunnel/
    - Click around to generate tracking data
    - View analytics at `http://localhost:3000`
 
-### Production Deployment
-
-For production deployment on your own server with nginx:
-
-```bash
-# 1. Copy project to server
-scp -r causalFunnel/ user@yourserver:/home/user/
-
-# 2. Run deployment script (Oracle Linux compatible)
-cd causalFunnel
-chmod +x deploy/deploy.sh
-sudo ./deploy/deploy.sh
-
-# 3. Install MongoDB separately (manual step)
-# Follow MongoDB installation guide for your OS
-
-# 4. Configure domain and SSL as needed
-```
-
-The deployment script handles:
-- Package manager detection (apt/yum/dnf)
-- Python and Node.js installation
-- Nginx configuration
-- Systemd service setup
-- Automatic service startup
 
 ## Features
 
@@ -251,15 +226,6 @@ CausalTracker.trackCustomEvent('form_submit', {
 });
 ```
 
-### Advanced Configuration
-```javascript
-// Configure tracking endpoint
-window.CausalConfig = {
-  apiBase: 'https://analytics.yourdomain.com',
-  sessionTimeout: 30 * 60 * 1000, // 30 minutes
-  enableDebug: false
-};
-```
 
 ## Data Models
 
@@ -377,11 +343,11 @@ sudo tail -f /var/log/mongodb/mongod.log
 - CORS configuration for controlled access
 - IP address logging for audit trails
 - SQL injection prevention (NoSQL database)
+- HTTPS enforcement with SSL/TLS encryption
 
 ### Recommended Enhancements
 - Rate limiting per IP address
 - API authentication with tokens
-- HTTPS enforcement
 - Data encryption at rest
 - Session security hardening
 - Access control and user permissions
@@ -404,43 +370,6 @@ sudo tail -f /var/log/mongodb/mongod.log
 - Limited export functionality
 - No data retention policies
 
-## Roadmap
-
-### Near Term (v2.0)
-- [ ] Real-time dashboard updates with WebSockets
-- [ ] Advanced filtering (date ranges, event types, user agents)
-- [ ] Data export functionality (CSV, JSON)
-- [ ] API rate limiting and authentication
-- [ ] Enhanced error handling and retry logic
-
-### Medium Term (v3.0)
-- [ ] Multi-tenant support with user authentication
-- [ ] Conversion funnel analysis
-- [ ] A/B testing framework integration
-- [ ] Geographic and device tracking
-- [ ] Advanced visualization components
-
-### Long Term (v4.0)
-- [ ] Machine learning insights and predictions
-- [ ] Real-time alerting system
-- [ ] Data warehousing integration
-- [ ] Mobile SDK for native apps
-- [ ] Enterprise SSO integration
-
-## Contributing
-
-### Development Workflow
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Make changes with proper testing
-4. Commit with descriptive messages
-5. Push and create Pull Request
-
-### Code Standards
-- Python: Follow PEP 8 with Black formatting
-- JavaScript: ESLint configuration with Prettier
-- CSS: BEM methodology with CSS custom properties
-- Database: Consistent naming conventions and indexing
 
 ---
 
