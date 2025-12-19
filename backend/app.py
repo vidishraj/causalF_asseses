@@ -220,8 +220,26 @@ def get_heatmap_data(page_url):
         # URL decode the page_url parameter
         decoded_page_url = unquote(page_url)
         
+        logger.info(f"Heatmap request - original: {page_url}")
+        logger.info(f"Heatmap request - decoded: {decoded_page_url}")
+        
         # Validate page URL
         validated_page_url = QueryValidator.validate_page_url_param(decoded_page_url)
+        
+        logger.info(f"Heatmap request - validated: {validated_page_url}")
+        
+        # Debug: Check what URLs exist for click events
+        all_click_urls = mongo.db.events.distinct('page_url', {'event_type': 'click'})
+        logger.info(f"Available click URLs in DB: {all_click_urls}")
+        
+        # Debug: Check exact query match
+        exact_matches = mongo.db.events.count_documents({
+            'event_type': 'click',
+            'page_url': validated_page_url,
+            'click_x': {'$ne': None},
+            'click_y': {'$ne': None}
+        })
+        logger.info(f"Exact matches for URL '{validated_page_url}': {exact_matches}")
         
         clicks = db_manager.get_click_heatmap_data(validated_page_url)
         
