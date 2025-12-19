@@ -135,19 +135,53 @@ def create_event():
 @log_request
 def get_sessions():
     try:
-        sessions = db_manager.get_sessions()
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 10, type=int)
+        search = request.args.get('search', '', type=str)
+        sort_by = request.args.get('sort_by', 'last_seen', type=str)
+        sort_order = request.args.get('sort_order', 'desc', type=str)
+        
+        # Validate parameters
+        page = max(1, page)
+        limit = min(max(1, limit), 100)  # Limit between 1 and 100
+        
+        # Get paginated sessions
+        result = db_manager.get_sessions_paginated(
+            page=page,
+            limit=limit,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
         
         # Convert sessions to JSON-serializable format
         sessions_data = []
-        for session in sessions:
+        for session in result['sessions']:
             session_dict = session.to_dict()
-            # Convert datetime objects to ISO format
             session_dict['first_seen'] = session.first_seen.isoformat() if session.first_seen else None
             session_dict['last_seen'] = session.last_seen.isoformat() if session.last_seen else None
             sessions_data.append(session_dict)
         
-        logger.info(f"Retrieved {len(sessions_data)} sessions")
-        return jsonify(sessions_data)
+        response_data = {
+            'sessions': sessions_data,
+            'pagination': {
+                'current_page': page,
+                'total_pages': result['total_pages'],
+                'total_sessions': result['total_sessions'],
+                'sessions_per_page': limit,
+                'has_next': result['has_next'],
+                'has_prev': result['has_prev']
+            },
+            'search': search,
+            'sort': {
+                'sort_by': sort_by,
+                'sort_order': sort_order
+            }
+        }
+        
+        logger.info(f"Retrieved {len(sessions_data)} sessions (page {page} of {result['total_pages']})")
+        return jsonify(response_data)
         
     except Exception as e:
         log_error("Failed to retrieve sessions", e)

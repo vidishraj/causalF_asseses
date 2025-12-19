@@ -97,19 +97,69 @@ Dashboard will run on `http://localhost:3000`
 - **Cross-page Tracking**: Maintains session across page navigation
 
 ### Analytics Dashboard
-- **Sessions View**: 
-  - List all user sessions with event counts
-  - Expandable session details showing complete user journey
-  - Chronological event timeline
-- **Heatmap View**:
-  - Visual representation of click patterns
-  - Grouped click data for better visualization
-  - URL selection from tracked pages
+
+#### Overview Dashboard
+- **Real-time statistics** with key metrics display
+- **Event type breakdown** with visual progress bars
+- **System health indicators** and performance monitoring
+- **Professional grid layout** with color-coded metrics
+
+#### Sessions View
+- **Server-side pagination** for efficient handling of large datasets
+- **Real-time search** by session ID with debounced input
+- **Advanced sorting** by 8 different criteria:
+  - Latest/Oldest Activity
+  - Most/Fewest Events
+  - Longest/Shortest Sessions
+  - Newest/Oldest Sessions
+- **Expandable session details** showing complete user journey
+- **Chronological event timeline** with user agent and metadata
+- **Smart pagination controls** with page numbers and navigation
+
+#### Heatmap View
+- **Visual click pattern representation** with intensity mapping
+- **Interactive URL selection** from tracked pages
+- **Grouped click data** for better visualization and performance
+- **Real-time data refresh** with error handling
 
 ### API Endpoints
+
+#### Event Management
 - `POST /api/events` - Store new tracking events
-- `GET /api/sessions` - Retrieve all sessions with event counts
+- `GET /api/health` - System health check
+- `GET /api/stats` - Analytics statistics overview
+
+#### Session Management
+- `GET /api/sessions` - Retrieve sessions with server-side pagination
+  - **Query Parameters:**
+    - `page` (int, default: 1) - Page number
+    - `limit` (int, default: 10, max: 100) - Items per page
+    - `search` (string) - Search by session ID
+    - `sort_by` (string, default: 'last_seen') - Sort field: `last_seen`, `first_seen`, `event_count`, `page_count`, `total_duration`
+    - `sort_order` (string, default: 'desc') - Sort direction: `asc` or `desc`
+  - **Response Format:**
+    ```json
+    {
+      "sessions": [...],
+      "pagination": {
+        "current_page": 1,
+        "total_pages": 5,
+        "total_sessions": 47,
+        "sessions_per_page": 10,
+        "has_next": true,
+        "has_prev": false
+      },
+      "search": "session_123",
+      "sort": {
+        "sort_by": "last_seen", 
+        "sort_order": "desc"
+      }
+    }
+    ```
+
 - `GET /api/sessions/<id>/events` - Get events for specific session
+
+#### Analytics
 - `GET /api/heatmap/<url>` - Get click data for heatmap visualization
 
 ## Usage
@@ -161,8 +211,10 @@ CausalTracker.trackCustomEvent('button_click', {
 
 ### Performance Considerations
 - Events are sent immediately to backend (no batching)
-- Dashboard loads all sessions at once (no pagination)
-- Heatmap processes click data client-side
+- **Server-side pagination** handles large session datasets efficiently
+- **MongoDB indexes** optimize query performance for sessions and events
+- **Debounced search** reduces API calls during user input
+- Heatmap processes click data client-side with smart grouping
 
 ## Potential Improvements
 - Add user authentication and authorization
@@ -173,3 +225,6 @@ CausalTracker.trackCustomEvent('button_click', {
 - Implement event batching for better performance
 - Add geographic and device tracking
 - Include bounce rate and engagement metrics
+- **Extend pagination** to other endpoints (events, heatmap data)
+- **Add export functionality** for paginated session data
+- **Implement advanced filters** (date ranges, event types, user agents)

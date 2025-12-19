@@ -127,6 +127,92 @@ class DatabaseManager:
         sessions_data = list(self.db.events.aggregate(pipeline))
         return [Session.from_aggregation(session) for session in sessions_data]
     
+    def get_sessions_paginated(self, page: int = 1, limit: int = 10, search: str = '', 
+                              sort_by: str = 'last_seen', sort_order: str = 'desc') -> dict:
+        # Build the aggregation pipeline
+        pipeline = []
+        
+        # First, group by session to get session stats
+        pipeline.append({
+            '$group': {
+                '_id': '$session_id',
+                'event_count': {'$sum': 1},
+                'first_seen': {'$min': '$timestamp'},
+                'last_seen': {'$max': '$timestamp'},
+                'page_count': {
+                    '$sum': {
+                        '$cond': [{'$eq': ['$event_type', 'page_view']}, 1, 0]
+                    }
+                }
+            }
+        })
+        
+        # Add calculated fields
+        pipeline.append({
+            '$addFields': {
+                'total_duration': {
+                    '$divide': [
+                        {'$subtract': ['$last_seen', '$first_seen']},
+                        1000  # Convert to seconds
+                    ]
+                },
+                'session_id': '$_id'
+            }
+        })
+        
+        # Add search filter if provided
+        if search:
+            pipeline.append({
+                '$match': {
+                    '$or': [
+                        {'session_id': {'$regex': search, '$options': 'i'}},
+                        # Add more search fields as needed
+                    ]
+                }
+            })
+        
+        # Add sorting
+        sort_direction = -1 if sort_order.lower() == 'desc' else 1
+        sort_field = 'last_seen'  # Default
+        
+        if sort_by in ['first_seen', 'last_seen', 'event_count', 'page_count', 'total_duration']:
+            sort_field = sort_by
+        
+        pipeline.append({'$sort': {sort_field: sort_direction}})
+        
+        # Get total count for pagination
+        count_pipeline = pipeline.copy()
+        count_pipeline.append({'$count': 'total'})
+        
+        total_result = list(self.db.events.aggregate(count_pipeline))
+        total_sessions = total_result[0]['total'] if total_result else 0
+        
+        # Add pagination
+        skip = (page - 1) * limit
+        pipeline.extend([
+            {'$skip': skip},
+            {'$limit': limit}
+        ])
+        
+        # Execute the main query
+        sessions_data = list(self.db.events.aggregate(pipeline))
+        sessions = [Session.from_aggregation(session) for session in sessions_data]
+        
+        # Calculate pagination metadata
+        total_pages = (total_sessions + limit - 1) // limit  # Ceiling division
+        has_next = page < total_pages
+        has_prev = page > 1
+        
+        return {
+            'sessions': sessions,
+            'total_sessions': total_sessions,
+            'total_pages': total_pages,
+            'current_page': page,
+            'has_next': has_next,
+            'has_prev': has_prev,
+            'sessions_per_page': limit
+        }
+    
     def get_session_events(self, session_id: str) -> list[Event]:
         events_data = list(self.db.events.find(
             {'session_id': session_id}

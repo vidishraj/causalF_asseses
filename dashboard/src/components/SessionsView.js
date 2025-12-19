@@ -9,16 +9,53 @@ function SessionsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [eventsLoading, setEventsLoading] = useState(false);
+  
+  // Pagination state - now managed by server
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sessionsPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('last_seen');
+  const [sortOrder, setSortOrder] = useState('desc');
+  
+  // Pagination metadata from server
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    total_pages: 1,
+    total_sessions: 0,
+    sessions_per_page: 10,
+    has_next: false,
+    has_prev: false
+  });
 
   useEffect(() => {
     fetchSessions();
   }, []);
 
+  // Fetch sessions when pagination or search changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchSessions();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [currentPage, searchTerm, sortBy, sortOrder]);
+
   const fetchSessions = async () => {
     try {
       setError(null);
-      const response = await axios.get(`${API_BASE}/sessions`);
-      setSessions(response.data);
+      setLoading(true);
+      
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: sessionsPerPage.toString(),
+        search: searchTerm,
+        sort_by: sortBy,
+        sort_order: sortOrder
+      });
+
+      const response = await axios.get(`${API_BASE}/sessions?${params}`);
+      setSessions(response.data.sessions);
+      setPagination(response.data.pagination);
     } catch (error) {
       console.error('Error fetching sessions:', error);
       setError(error.response?.data?.message || 'Failed to fetch sessions');
@@ -71,6 +108,40 @@ function SessionsView() {
     };
   };
 
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    setSelectedSession(null); // Close any open session details
+    setSessionEvents([]);
+  };
+
+  const goToPreviousPage = () => {
+    if (pagination.has_prev) {
+      goToPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (pagination.has_next) {
+      goToPage(currentPage + 1);
+    }
+  };
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handleSortChange = (newSortBy) => {
+    if (sortBy === newSortBy) {
+      // Toggle sort order if same field
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder('desc'); // Default to desc for new field
+    }
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
   if (loading) {
     return <div className="loading">Loading sessions...</div>;
   }
@@ -93,16 +164,86 @@ function SessionsView() {
       
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3>Sessions Overview ({sessions.length} total)</h3>
-          <button className="btn" onClick={fetchSessions} disabled={loading}>
-            Refresh
-          </button>
+          <h3>Sessions Overview ({pagination.total_sessions} total)</h3>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {/* Sort Options */}
+            <select
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split('-');
+                setSortBy(field);
+                setSortOrder(order);
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '0.5rem',
+                border: '1px solid var(--color-gray-300)',
+                borderRadius: '0.375rem',
+                fontSize: 'var(--text-sm)',
+                backgroundColor: 'white'
+              }}
+            >
+              <option value="last_seen-desc">Latest Activity</option>
+              <option value="last_seen-asc">Oldest Activity</option>
+              <option value="event_count-desc">Most Events</option>
+              <option value="event_count-asc">Fewest Events</option>
+              <option value="total_duration-desc">Longest Session</option>
+              <option value="total_duration-asc">Shortest Session</option>
+              <option value="first_seen-desc">Newest Sessions</option>
+              <option value="first_seen-asc">Oldest Sessions</option>
+            </select>
+            
+            <button className="btn" onClick={() => fetchSessions()} disabled={loading}>
+              {loading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {/* Search and Filter Controls */}
+        <div style={{ marginBottom: '20px' }}>
+          <input
+            type="text"
+            placeholder="Search sessions by ID..."
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid var(--color-gray-300)',
+              borderRadius: '0.5rem',
+              fontSize: 'var(--text-sm)',
+              fontFamily: 'var(--font-primary)'
+            }}
+          />
+          {searchTerm && (
+            <div style={{ marginTop: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--color-gray-600)' }}>
+              Found {pagination.total_sessions} session{pagination.total_sessions !== 1 ? 's' : ''} matching "{searchTerm}"
+            </div>
+          )}
         </div>
         
         {sessions.length === 0 ? (
-          <p>No sessions found. Visit the demo page to generate tracking data.</p>
+          <p>{searchTerm ? 'No sessions match your search criteria.' : 'No sessions found. Visit the demo page to generate tracking data.'}</p>
         ) : (
           <div>
+            {/* Pagination Info */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem',
+              fontSize: 'var(--text-sm)',
+              color: 'var(--color-gray-600)'
+            }}>
+              <span>
+                Showing {((pagination.current_page - 1) * pagination.sessions_per_page) + 1}-{Math.min(pagination.current_page * pagination.sessions_per_page, pagination.total_sessions)} of {pagination.total_sessions} sessions
+              </span>
+              <span>
+                Page {pagination.current_page} of {pagination.total_pages}
+              </span>
+            </div>
+
+            {/* Sessions List */}
             {sessions.map((session) => {
               const stats = getSessionStats(session);
               return (
@@ -167,6 +308,89 @@ function SessionsView() {
                 </div>
               );
             })}
+
+            {/* Pagination Controls */}
+            {pagination.total_pages > 1 && (
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                gap: '0.5rem',
+                marginTop: '2rem',
+                padding: '1rem 0'
+              }}>
+                <button 
+                  className="btn" 
+                  onClick={goToPreviousPage}
+                  disabled={!pagination.has_prev}
+                  style={{ 
+                    padding: '0.5rem 0.75rem',
+                    fontSize: 'var(--text-sm)'
+                  }}
+                >
+                  ← Previous
+                </button>
+
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                  {Array.from({ length: Math.min(pagination.total_pages, 7) }, (_, index) => {
+                    let pageNumber;
+                    if (pagination.total_pages <= 7) {
+                      pageNumber = index + 1;
+                    } else if (pagination.current_page <= 4) {
+                      pageNumber = index + 1;
+                    } else if (pagination.current_page >= pagination.total_pages - 3) {
+                      pageNumber = pagination.total_pages - 6 + index;
+                    } else {
+                      pageNumber = pagination.current_page - 3 + index;
+                    }
+
+                    return (
+                      <button
+                        key={pageNumber}
+                        onClick={() => goToPage(pageNumber)}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          border: '1px solid var(--color-gray-300)',
+                          borderRadius: '0.375rem',
+                          background: pageNumber === pagination.current_page ? 'var(--color-blue-600)' : 'white',
+                          color: pageNumber === pagination.current_page ? 'white' : 'var(--color-gray-700)',
+                          cursor: 'pointer',
+                          fontSize: 'var(--text-sm)',
+                          fontWeight: pageNumber === pagination.current_page ? '600' : '400',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button 
+                  className="btn" 
+                  onClick={goToNextPage}
+                  disabled={!pagination.has_next}
+                  style={{ 
+                    padding: '0.5rem 0.75rem',
+                    fontSize: 'var(--text-sm)'
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+
+            {/* Results Summary */}
+            <div style={{ 
+              textAlign: 'center', 
+              marginTop: '1rem', 
+              fontSize: 'var(--text-xs)', 
+              color: 'var(--color-gray-500)' 
+            }}>
+              {pagination.total_pages > 1 && (
+                <>Total {pagination.total_sessions} sessions across {pagination.total_pages} pages</>
+              )}
+            </div>
           </div>
         )}
       </div>
