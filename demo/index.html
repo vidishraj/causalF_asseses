@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Causal Funnel Demo</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .button:hover { background: #0056b3; }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #tracking-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="tracking-status">Tracking Active</div>
+    
+    <div class="container">
+        <h1>Causal Funnel Demo Page</h1>
+        <p>This page demonstrates event tracking. Every page view and click is being tracked.</p>
+        
+        <div class="section">
+            <h2>Interactive Elements</h2>
+            <button class="button" onclick="handleButtonClick('primary')">Primary Button</button>
+            <button class="button" onclick="handleButtonClick('secondary')" style="background: #6c757d;">Secondary Button</button>
+            <button class="button" onclick="handleButtonClick('danger')" style="background: #dc3545;">Danger Button</button>
+        </div>
+        
+        <div class="section">
+            <h2>Navigation Links</h2>
+            <a href="#section1" onclick="trackCustomEvent('navigation', 'section1')">Go to Section 1</a> | 
+            <a href="#section2" onclick="trackCustomEvent('navigation', 'section2')">Go to Section 2</a> | 
+            <a href="page2.html">Visit Page 2</a>
+        </div>
+        
+        <div class="section" id="section1">
+            <h2>Section 1</h2>
+            <p>Click anywhere in this section to generate click tracking data.</p>
+            <div style="height: 100px; background: #e9ecef; padding: 20px; text-align: center; line-height: 60px;">
+                Clickable Area
+            </div>
+        </div>
+        
+        <div class="section" id="section2">
+            <h2>Section 2</h2>
+            <p>This is another section with trackable content.</p>
+            <button class="button" onclick="simulateUserFlow()">Simulate User Flow</button>
+        </div>
+    </div>
+
+    <script src="tracker.js"></script>
+    <script>
+        function handleButtonClick(type) {
+            CausalTracker.trackCustomEvent('button_click', { button_type: type });
+            alert(`${type} button clicked! Event tracked.`);
+        }
+        
+        function trackCustomEvent(category, action) {
+            CausalTracker.trackCustomEvent('custom_event', { 
+                category: category, 
+                action: action 
+            });
+        }
+        
+        function simulateUserFlow() {
+            setTimeout(() => {
+                CausalTracker.trackCustomEvent('flow_step', { step: 1 });
+            }, 500);
+            
+            setTimeout(() => {
+                CausalTracker.trackCustomEvent('flow_step', { step: 2 });
+            }, 1000);
+            
+            setTimeout(() => {
+                CausalTracker.trackCustomEvent('flow_complete', { total_steps: 2 });
+                alert('User flow simulation complete!');
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
