@@ -1,0 +1,6 @@
+dashboard/node_modules/
+dashboard/build/
+backend/.idea
+backend/__pycache__/
+backend/logs/
+demo
