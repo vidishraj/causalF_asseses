@@ -18,7 +18,7 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Detect package manager and update system
+# Detect package manager for later use
 echo "📦 Detecting package manager..."
 if command -v dnf &> /dev/null; then
     PKG_MANAGER="dnf"
@@ -32,75 +32,35 @@ else
 fi
 
 echo "📦 Using package manager: $PKG_MANAGER"
-echo "📦 Updating system packages..."
 
-if [ "$PKG_MANAGER" = "apt" ]; then
-    apt update && apt upgrade -y
-else
-    $PKG_MANAGER update -y
-    # Install EPEL repository for additional packages
-    $PKG_MANAGER install -y epel-release
-fi
+# Check if required packages are installed
+echo "🔍 Checking for required packages..."
+MISSING_PACKAGES=()
 
-# Install required packages
-echo "📦 Installing required packages..."
-if [ "$PKG_MANAGER" = "apt" ]; then
-    apt install -y nginx mongodb python3 python3-pip nodejs npm git certbot python3-certbot-nginx
+# Check for required packages
+for cmd in nginx mongod python3 pip3 node npm git; do
+    if ! command -v $cmd >/dev/null 2>&1; then
+        MISSING_PACKAGES+=($cmd)
+    fi
+done
+
+if [ ${#MISSING_PACKAGES[@]} -gt 0 ]; then
+    echo "❌ Missing required packages: ${MISSING_PACKAGES[*]}"
+    echo "Please install these packages first:"
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        echo "  sudo apt install -y nginx mongodb python3 python3-pip nodejs npm git"
+    else
+        echo "  sudo $PKG_MANAGER install -y nginx mongodb-org python3 python3-pip nodejs npm git"
+    fi
+    echo ""
+    echo "For MongoDB on Oracle Linux, you may need to:"
+    echo "  1. Add MongoDB repository"
+    echo "  2. sudo $PKG_MANAGER install -y mongodb-org"
+    echo ""
+    echo "After installing packages, re-run this script."
+    exit 1
 else
-    # Check what's already installed and skip conflicts
-    echo "📦 Checking for already installed packages..."
-    
-    # Install packages one by one, skipping if they cause conflicts
-    for pkg in nginx python3 python3-pip nodejs npm git; do
-        if ! rpm -q $pkg >/dev/null 2>&1; then
-            echo "Installing $pkg..."
-            $PKG_MANAGER install -y $pkg || echo "Skipped $pkg due to conflicts"
-        else
-            echo "$pkg already installed"
-        fi
-    done
-    
-    # Try to install certbot
-    if ! command -v certbot >/dev/null 2>&1; then
-        echo "Installing certbot..."
-        $PKG_MANAGER install -y certbot python3-certbot-nginx || echo "Certbot installation skipped - SSL setup will be manual"
-    else
-        echo "certbot already installed"
-    fi
-    
-    # Install MongoDB if not already installed
-    if ! command -v mongod >/dev/null 2>&1; then
-        echo "📦 Installing MongoDB from official repository..."
-        cat > /etc/yum.repos.d/mongodb-org-6.0.repo << 'EOF'
-[mongodb-org-6.0]
-name=MongoDB Repository
-baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/6.0/x86_64/
-gpgcheck=1
-enabled=1
-gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc
-EOF
-        
-        # Clean package cache and try installation
-        $PKG_MANAGER clean all
-        
-        # Try different installation methods
-        if ! $PKG_MANAGER install -y mongodb-org; then
-            echo "❌ Standard MongoDB installation failed. Trying conflict resolution..."
-            # Try with conflict resolution
-            if ! $PKG_MANAGER install -y --allowerasing mongodb-org; then
-                echo "❌ Still failed. Trying to remove MySQL conflicts..."
-                # Remove MySQL packages that might conflict
-                $PKG_MANAGER remove -y mysql-community-* || true
-                $PKG_MANAGER install -y mongodb-org || {
-                    echo "❌ MongoDB installation failed completely. You may need to install it manually."
-                    echo "Please run: sudo yum install -y mongodb-org"
-                    exit 1
-                }
-            fi
-        fi
-    else
-        echo "MongoDB already installed"
-    fi
+    echo "✅ All required packages are installed"
 fi
 
 # Start and enable services
