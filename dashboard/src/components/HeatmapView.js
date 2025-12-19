@@ -156,7 +156,7 @@ function HeatmapView() {
         
         {clickData.length > 0 && (
           <div style={{ marginTop: '20px' }}>
-            <h4>Click Data for: {pageUrl}</h4>
+            <h4>Click Data for: <span className="url-display">{pageUrl}</span></h4>
             <p style={{ color: '#666', marginBottom: '15px' }}>
               Total clicks: {clickData.length}
             </p>

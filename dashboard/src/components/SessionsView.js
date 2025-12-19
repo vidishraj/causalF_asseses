@@ -163,9 +163,9 @@ function SessionsView() {
       <h2>User Sessions</h2>
       
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div className="sessions-header">
           <h3>Sessions Overview ({pagination.total_sessions} total)</h3>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="sessions-controls">
             {/* Sort Options */}
             <select
               value={`${sortBy}-${sortOrder}`}
