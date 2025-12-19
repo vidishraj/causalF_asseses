@@ -4,6 +4,7 @@ from flask_pymongo import PyMongo
 from datetime import datetime
 import os
 from functools import wraps
+from urllib.parse import unquote
 
 from models import Event, DatabaseManager
 from validators import EventValidator, QueryValidator, ValidationError
@@ -216,8 +217,11 @@ def get_session_events(session_id):
 @log_request
 def get_heatmap_data(page_url):
     try:
+        # URL decode the page_url parameter
+        decoded_page_url = unquote(page_url)
+        
         # Validate page URL
-        validated_page_url = QueryValidator.validate_page_url_param(page_url)
+        validated_page_url = QueryValidator.validate_page_url_param(decoded_page_url)
         
         clicks = db_manager.get_click_heatmap_data(validated_page_url)
         
