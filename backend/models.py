@@ -30,7 +30,10 @@ class Event:
         if not self.session_id or not self.event_type or not self.page_url:
             return False
         
-        valid_event_types = ['page_view', 'click', 'custom_event', 'page_unload']
+        valid_event_types = [
+            'page_view', 'click', 'custom_event', 'page_unload',
+            'flow_step', 'flow_complete', 'card_interaction'
+        ]
         if self.event_type not in valid_event_types:
             return False
             

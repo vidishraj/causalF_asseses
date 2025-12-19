@@ -12,7 +12,10 @@ class ValidationError(Exception):
 
 class EventValidator:
     REQUIRED_FIELDS = ['session_id', 'event_type', 'page_url']
-    VALID_EVENT_TYPES = ['page_view', 'click', 'custom_event', 'page_unload']
+    VALID_EVENT_TYPES = [
+        'page_view', 'click', 'custom_event', 'page_unload',
+        'flow_step', 'flow_complete', 'card_interaction'
+    ]
     MAX_STRING_LENGTH = 2048
     MAX_URL_LENGTH = 2048
     
@@ -66,6 +69,17 @@ class EventValidator:
             parsed = urlparse(page_url)
             if not parsed.scheme and not parsed.netloc and not parsed.path:
                 raise ValidationError('page_url', 'Invalid URL format', page_url)
+            
+            # Normalize URL: remove www subdomain for consistency
+            netloc = parsed.netloc.lower()
+            if netloc.startswith('www.'):
+                netloc = netloc[4:]
+                page_url = f"{parsed.scheme}://{netloc}{parsed.path}"
+                if parsed.query:
+                    page_url += f"?{parsed.query}"
+                if parsed.fragment:
+                    page_url += f"#{parsed.fragment}"
+                    
         except Exception:
             raise ValidationError('page_url', 'Invalid URL format', page_url)
         
